@@ -1,0 +1,75 @@
+void Main()
+{
+	var dict = Enumerable.Range(1, 10)
+		.Select(i => new KeyValuePair<string, int>("This is a long Key"+i, i))
+		.ToDictionary();
+	
+	const string FileName = @"C:\Users\M755411\Downloads\mad_data.bin";
+
+	SerializeToFile(FileName, dict);
+	var dict2 = DeserializeFromFile<Dictionary<string, int>>(FileName);
+	dict2.Take(10).Dump();
+	
+	File.Delete(FileName);
+}
+
+public static void SerializeToFile<T>(string fileName, T obj)
+{
+	using (var fs = File.Open(fileName, FileMode.Create, FileAccess.Write))
+	{
+		Serialize(obj, fs);
+	}
+}
+
+public static T DeserializeFromFile<T>(string fileName) where T : new()
+{
+	using (var fs = File.Open(fileName, FileMode.Open, FileAccess.Read))
+	{
+		return Deserialize<T>(fs);
+	}
+}
+
+public static void Serialize<T>(T obj, Stream stream)
+{
+	try // try to serialize the collection to a file
+	{
+		using (stream)
+		{
+			// create BinaryFormatter
+			BinaryFormatter bin = new BinaryFormatter();
+			// serialize the collection (EmployeeList1) to file (stream)
+			bin.Serialize(stream, obj);
+		}
+	}
+	catch (IOException)
+	{
+	}
+}
+
+public static T Deserialize<T>(Stream stream) where T : new()
+{
+	T ret = default(T);
+	//T ret = CreateInstance<T>();
+
+	try
+	{
+		using (stream)
+		{
+			// create BinaryFormatter
+			BinaryFormatter bin = new BinaryFormatter();
+	
+			// deserialize the collection (Employee) from file (stream)
+			ret = (T)bin.Deserialize(stream);
+		}
+	}
+	catch (IOException)
+	{
+	}
+
+	return ret;
+}
+// function to create instance of T
+public static T CreateInstance<T>() where T : new()
+{
+	return (T)Activator.CreateInstance(typeof(T));
+}
