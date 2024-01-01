@@ -1,0 +1,30 @@
+[
+    {
+        "COLUMN_NAME": "EMPLOYEE_ID",
+        "DATA_TYPE": "NUMBER"
+    },
+    {
+        "COLUMN_NAME": "FIRST_NAME",
+        "DATA_TYPE": "VARCHAR(50)"
+    },
+    {
+        "COLUMN_NAME": "LAST_NAME",
+        "DATA_TYPE": "VARCHAR(50)"
+    },
+    {
+        "COLUMN_NAME": "EMAIL",
+        "DATA_TYPE": "VARCHAR(100)"
+    },
+    {
+        "COLUMN_NAME": "HIRE_DATE",
+        "DATA_TYPE": "DATE"
+    },
+    {
+        "COLUMN_NAME": "JOB_TITLE",
+        "DATA_TYPE": "VARCHAR(50)"
+    },
+    {
+        "COLUMN_NAME": "SALARY",
+        "DATA_TYPE": "NUMBER(10,2)"
+    }
+]
