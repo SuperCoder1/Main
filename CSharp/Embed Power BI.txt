@@ -1,0 +1,227 @@
+Embedding a PowerBI Interactive Report in an Angular Web Page using Azure Service Principal and Azure Function App
+To embed a PowerBI interactive report in an Angular web page, we can utilize an Azure Service Principal and an Azure Function App. The Azure Service Principal will provide the necessary credentials to access the PowerBI API, while the Azure Function App will act as a middle layer to handle the authentication and embedding process.
+Prerequisites
+Before we begin, make sure you have the following prerequisites in place:
+	• An Azure subscription
+	• An existing PowerBI workspace and report
+	• Node.js and Angular CLI installed on your development machine
+Step 1: Create an Azure Service Principal
+	1. Open the Azure Portal and navigate to the Azure Active Directory (AAD) section.
+	2. Select "App registrations" and click on "New registration".
+	3. Provide a name for your service principal and select the appropriate account type.
+	4. Set the redirect URI to http://localhost:4200 (this will be used for local development).
+	5. Once the registration is complete, note down the "Application (client) ID" and "Directory (tenant) ID" values.
+Step 2: Grant API Permissions
+	1. In the Azure Portal, go to your PowerBI workspace.
+	2. Select "Access control (IAM)" and click on "Add a role assignment".
+	3. Choose the appropriate role (e.g., "Contributor") and search for the service principal created in Step 1.
+	4. Select the service principal and click on "Save".
+Step 3: Create an Azure Function App
+	1. Open the Azure Portal and navigate to the Azure Function App section.
+	2. Click on "Add" to create a new function app.
+	Add the Microsoft.PowerBI.Api NuGet package to your project.
+	
+	3. Provide the necessary details, such as the resource group, name, and runtime stack.
+	4. Once the function app is created, go to the "Configuration" section and add the following application settings:
+		○ PowerBIWorkspaceId: The ID of your PowerBI workspace.
+		○ PowerBIReportId: The ID of the report you want to embed.
+		○ PowerBIServicePrincipalClientId: The "Application (client) ID" of the service principal created in Step 1.
+		○ PowerBIServicePrincipalClientSecret: The client secret generated for the service principal.
+		○ PowerBIServicePrincipalTenantId: The "Directory (tenant) ID" of the service principal created in Step 1.
+Step 4: Implement the Azure Function
+	1. In your local development environment, create a new Azure Function project using Visual Studio or any other preferred IDE.
+	2. Add a new HTTP trigger function to the project.
+	3. Replace the default code with the following code:
+
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Threading.Tasks;
+using Microsoft.Azure.WebJobs;
+using Microsoft.Azure.WebJobs.Extensions.Http;
+using Microsoft.Extensions.Logging;
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using Microsoft.PowerBI.Api;
+using Microsoft.PowerBI.Api.Models;
+
+public static class EmbedReportFunction
+{
+    private static readonly string PowerBIWorkspaceId = Environment.GetEnvironmentVariable("PowerBIWorkspaceId");
+    private static readonly string PowerBIReportId = Environment.GetEnvironmentVariable("PowerBIReportId");
+    private static readonly string PowerBIServicePrincipalClientId = Environment.GetEnvironmentVariable("PowerBIServicePrincipalClientId");
+    private static readonly string PowerBIServicePrincipalClientSecret = Environment.GetEnvironmentVariable("PowerBIServicePrincipalClientSecret");
+    private static readonly string PowerBIServicePrincipalTenantId = Environment.GetEnvironmentVariable("PowerBIServicePrincipalTenantId");
+
+    [FunctionName("EmbedReport")]
+    public static async Task<HttpResponseMessage> Run(
+        [HttpTrigger(AuthorizationLevel.Function, "get", Route = null)] HttpRequestMessage req,
+        ILogger log)
+    {
+        var authorityUrl = $"https://login.microsoftonline.com/{PowerBIServicePrincipalTenantId}";
+        var authenticationContext = new AuthenticationContext(authorityUrl);
+        var credential = new ClientCredential(PowerBIServicePrincipalClientId, PowerBIServicePrincipalClientSecret);
+        var authenticationResult = await authenticationContext.AcquireTokenAsync("https://analysis.windows.net/powerbi/api", credential);
+
+        using (var client = new PowerBIClient(new Uri("https://api.powerbi.com"), new TokenCredentials(authenticationResult.AccessToken, "Bearer")))
+        {
+            var embedToken = await client.Reports.GenerateTokenAsync(PowerBIWorkspaceId, PowerBIReportId);
+            var embedUrl = $"https://app.powerbi.com/reportEmbed?reportId={PowerBIReportId}&groupId={PowerBIWorkspaceId}";
+
+            return req.CreateResponse(HttpStatusCode.OK, new
+            {
+                EmbedUrl = embedUrl,
+                EmbedToken = embedToken.Token
+            });
+        }
+    }
+}
+
+Step 5: Deploy the Azure Function App
+	1. Publish the Azure Function project to your Azure Function App.
+	2. Once the deployment is complete, note down the URL of the Azure Function App.
+Step 6: Embed the Report in an Angular Web Page
+	1. In your Angular project, install the powerbi-client package using the following command:
+
+npm install powerbi-client
+
+1. Create a new component to embed the PowerBI report.
+2. Add the following code to the component:
+
+report.component.html
+<div id="reportContainer"></div>
+
+import { Component, OnInit } from '@angular/core';
+import * as powerbi from 'powerbi-client';
+import { PowerBIEmbedModule } from 'powerbi-client-angular';
+
+
+@Component({
+  selector: 'app-powerbi-report',
+  templateUrl: './powerbi-report.component.html',
+  styleUrls: ['./powerbi-report.component.css']
+})
+export class PowerBIReportComponent implements OnInit {
+
+  constructor() { }
+
+  ngOnInit(): void {
+    this.embedReport();
+  }
+
+  embedReport(): void {
+    const embedConfig = {
+      type: 'report',
+      id: 'your-report-id',
+      embedUrl: 'https://app.powerbi.com/reportEmbed',
+      accessToken: 'your-access-token',
+      tokenType: models.TokenType.Embed,
+      permissions: models.Permissions.All,
+      viewMode: models.ViewMode.Interactive,
+      settings: {
+        filterPaneEnabled: false,
+        navContentPaneEnabled: true
+      }
+    };
+
+    const reportContainer = document.getElementById('reportContainer');
+    const report = powerbi.embed(reportContainer, embedConfig);
+  }
+
+}
+
+
+
+2ND APPROACH
+
+import { Component, OnInit } from '@angular/core';
+import * as pbi from 'powerbi-client';
+
+@Component({
+  selector: 'app-report',
+  templateUrl: './report.component.html',
+  styleUrls: ['./report.component.css']
+})
+export class ReportComponent implements OnInit {
+  ngOnInit(): void {
+    const embedConfig = {
+      type: 'report',
+      id: '<PowerBIReportId>',
+      embedUrl: '<AzureFunctionAppUrl>/api/EmbedReport',
+      accessToken: '<AccessToken>'
+    };
+
+    const reportContainer = <HTMLElement>document.getElementById('reportContainer');
+    const report = new pbi.Report(reportContainer);
+
+    report.on('loaded', () => {
+      console.log('Report loaded');
+    });
+
+    report.on('error', (event) => {
+      console.error('Error', event.detail);
+    });
+
+    report.on('rendered', () => {
+      console.log('Report rendered');
+    });
+
+    report.on('saved', () => {
+      console.log('Report saved');
+    });
+
+    report.on('commandTriggered', (event) => {
+      console.log('Command triggered', event.detail);
+    });
+
+    report.on('dataSelected', (event) => {
+      console.log('Data selected', event.detail);
+    });
+
+    report.on('pageChanged', (event) => {
+      console.log('Page changed', event.detail);
+    });
+
+    report.on('visualRendered', (event) => {
+      console.log('Visual rendered', event.detail);
+    });
+
+    report.on('visualClicked', (event) => {
+      console.log('Visual clicked', event.detail);
+    });
+
+    report.on('bookmarkApplied', (event) => {
+      console.log('Bookmark applied', event.detail);
+    });
+
+    report.on('dataHyperlinkClicked', (event) => {
+      console.log('Data hyperlink clicked', event.detail);
+    });
+
+    report.on('swipeStart', () => {
+      console.log('Swipe start');
+    });
+
+    report.on('swipeEnd', () => {
+      console.log('Swipe end');
+    });
+
+    report.on('bookmarkClicked', (event) => {
+      console.log('Bookmark clicked', event.detail);
+    });
+
+    report.on('commandTriggered', (event) => {
+      console.log('Command triggered', event.detail);
+    });
+
+    report.on('filtersApplied', (event) => {
+      console.log('Filters applied', event.detail);
+    });
+
+    report.on('visualClicked', (event) => {
+      console.log('Visual clicked', event.detail);
+    });
+
+    report.on('visualContextMenu', (event) => {
+      console.log('Visual context menu', event.detail);
+    });
+
